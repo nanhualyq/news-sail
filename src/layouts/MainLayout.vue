@@ -31,7 +31,7 @@
 import { omit } from 'lodash-es';
 import { useQuasar } from 'quasar';
 import Parser from 'rss-parser/dist/rss-parser.min.js';
-import { useFeedStore } from 'src/stores/feed';
+import { useFeedStore } from 'src/stores/feedStore';
 import { db } from 'src/utils/db';
 import { ref } from 'vue';
 

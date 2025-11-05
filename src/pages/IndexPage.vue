@@ -34,7 +34,7 @@ import { get, set } from 'lodash-es';
 import { db } from 'src/utils/db';
 import { ref, toRaw, watchEffect } from 'vue';
 import relativeTime from 'dayjs/plugin/relativeTime'
-import { useFeedStore } from 'src/stores/feed';
+import { useFeedStore } from 'src/stores/feedStore';
 import StarToggle from 'src/components/StarToggle.vue';
 import { type Item } from 'src/utils/item';
 
