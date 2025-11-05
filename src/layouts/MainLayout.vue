@@ -12,9 +12,12 @@
 
     <q-drawer v-model="leftDrawerOpen" show-if-above bordered>
       <q-list>
-        <q-item-label header> Essential Links </q-item-label>
-
-        <EssentialLink v-for="link in linksList" :key="link.title" v-bind="link" />
+        <button @click="addFeed">Add Feed</button>
+        <q-item v-for="feed in feedStore.feeds" :key="feed._id">
+          <q-item-section>
+            <q-item-label>{{ feed.title }}</q-item-label>
+          </q-item-section>
+        </q-item>
       </q-list>
     </q-drawer>
 
@@ -25,57 +28,54 @@
 </template>
 
 <script setup lang="ts">
+import { omit } from 'lodash-es';
+import { useQuasar } from 'quasar';
+import Parser from 'rss-parser/dist/rss-parser.min.js';
+import { useFeedStore } from 'src/stores/feed';
+import { db } from 'src/utils/db';
 import { ref } from 'vue';
-import EssentialLink, { type EssentialLinkProps } from 'components/EssentialLink.vue';
 
-const linksList: EssentialLinkProps[] = [
-  {
-    title: 'Docs',
-    caption: 'quasar.dev',
-    icon: 'school',
-    link: 'https://quasar.dev',
-  },
-  {
-    title: 'Github',
-    caption: 'github.com/quasarframework',
-    icon: 'code',
-    link: 'https://github.com/quasarframework',
-  },
-  {
-    title: 'Discord Chat Channel',
-    caption: 'chat.quasar.dev',
-    icon: 'chat',
-    link: 'https://chat.quasar.dev',
-  },
-  {
-    title: 'Forum',
-    caption: 'forum.quasar.dev',
-    icon: 'record_voice_over',
-    link: 'https://forum.quasar.dev',
-  },
-  {
-    title: 'Twitter',
-    caption: '@quasarframework',
-    icon: 'rss_feed',
-    link: 'https://twitter.quasar.dev',
-  },
-  {
-    title: 'Facebook',
-    caption: '@QuasarFramework',
-    icon: 'public',
-    link: 'https://facebook.quasar.dev',
-  },
-  {
-    title: 'Quasar Awesome',
-    caption: 'Community Quasar projects',
-    icon: 'favorite',
-    link: 'https://awesome.quasar.dev',
-  },
-];
+const $q = useQuasar()
 
 const leftDrawerOpen = ref(false);
+const feedStore = useFeedStore()
+void feedStore.fetchFeeds()
 
 function toggleLeftDrawer() {
   leftDrawerOpen.value = !leftDrawerOpen.value;
+}
+
+function addFeed() {
+  $q.dialog({
+    title: 'Add Feed',
+    prompt: {
+      model: '',
+    }
+  })
+    // https://kite.kagi.com/ai_zh-Hans.xml
+    .onOk(url => void fetchFeedAndSave(url))
+}
+
+async function fetchFeedAndSave(url: string) {
+  const xml = await window.backend.fetch(url)
+  const parser = new Parser()
+  const feed = await parser.parseString(xml)
+  console.log(feed)
+  const feedId = feed.link || `feed-${Date.now()}`
+  const docs = [
+    {
+      _id: feedId,
+      type: 'feed',
+      ...omit(feed, 'items')
+    },
+    ...feed.items.map(item => ({
+      _id: item.guid || item.link || `item-${Date.now()}`,
+      feedId,
+      type: 'item',
+      ...item
+    }))
+  ]
+  const res = await db.bulkDocs(docs)
+  console.log(res);
 }
 </script>

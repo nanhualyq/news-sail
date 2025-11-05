@@ -27,3 +27,8 @@
  *   }
  * }
  */
+
+import { contextBridge } from 'electron';
+import bridge from './api/bridge';
+
+contextBridge.exposeInMainWorld('backend', bridge);

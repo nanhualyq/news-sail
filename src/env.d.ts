@@ -5,3 +5,8 @@ declare namespace NodeJS {
     VUE_ROUTER_BASE: string | undefined;
   }
 }
+
+declare module 'rss-parser/dist/rss-parser.min.js' {
+  import Parser from 'rss-parser';
+  export default Parser;
+}
