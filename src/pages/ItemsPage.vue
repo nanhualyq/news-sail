@@ -13,7 +13,7 @@
             <q-item-label :lines="3">{{ item.contentSnippet }}</q-item-label>
             <q-item-label class="row q-gutter-x-sm items-center">
               <ItemTime :item />
-              <ItemFeed :item />
+              <a href="#">{{ feedStore.byId(item.feedId || '')?.title }}</a>
               <StarToggle :star="!!item.star" @click.stop="toggleStar(index)" padding="none" />
             </q-item-label>
           </q-item-section>
@@ -34,17 +34,18 @@
 import { get, set } from 'lodash-es';
 import { db } from 'src/utils/db';
 import { computed, ref, toRaw, watchEffect } from 'vue';
+import { useFeedStore } from 'src/stores/feedStore';
 import StarToggle from 'src/components/StarToggle.vue';
 import { type Item } from 'src/utils/item';
 import ItemPage from './ItemPage.vue';
 import ItemTime from 'src/components/ItemTime.vue';
-import ItemFeed from 'src/components/ItemFeed.vue';
 
 
 const items = ref<Item[]>([])
 const skip = ref(0)
 const limit = 5
 const hasMore = ref(true)
+const feedStore = useFeedStore()
 const activeIndex = ref(-1)
 
 const activeItem = computed(() => items.value[activeIndex.value])
@@ -79,15 +80,14 @@ function setItemCover(item: unknown) {
   set(item as object, 'cover', src)
 }
 async function toggleStar(index: number) {
-  const newItem = toRaw(items.value[index])
-  if (!newItem) {
+  const item = items.value[index]
+  if (!item) {
     return
   }
-  newItem.star = !newItem.star
-  const res = await db.put(newItem)
+  item.star = !item.star
+  const res = await db.put(toRaw(item))
   if (res.ok) {
-    const latest = await db.get(newItem._id)
-    items.value[index] = latest
+    item._rev = res.rev
   }
 }
 </script>
