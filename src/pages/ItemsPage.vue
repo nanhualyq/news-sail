@@ -2,7 +2,7 @@
   <q-page>
     <q-list>
       <q-infinite-scroll @load="loadNextPage" :offset="10">
-        <q-item clickable v-for="(item, index) in items" :key="get(item, '_id', index)">
+        <q-item clickable v-for="(item, index) in items" :key="get(item, '_id', index)" @click="activeIndex = index">
           <q-item-section thumbnail v-if="item.cover">
             <img :src="item.cover" />
           </q-item-section>
@@ -12,9 +12,9 @@
             </q-item-label>
             <q-item-label :lines="3">{{ item.contentSnippet }}</q-item-label>
             <q-item-label class="row q-gutter-x-sm items-center">
-              <span :title="item.pubDate">{{ getItemTime(item) }}</span>
-              <a href="#">{{ feedStore.byId(item.feedId || '')?.title }}</a>
-              <StarToggle :item @click="toggleStar(index)" padding="none" />
+              <ItemTime :item />
+              <ItemFeed :item />
+              <StarToggle :star="!!item.star" @click.stop="toggleStar(index)" padding="none" />
             </q-item-label>
           </q-item-section>
         </q-item>
@@ -25,26 +25,29 @@
         </template>
       </q-infinite-scroll>
     </q-list>
+    <ItemPage v-if="activeItem" :item="activeItem" :key="activeItem?._id" @close="activeIndex = -1"
+      @toggle-star="toggleStar(activeIndex)" />
   </q-page>
 </template>
 
 <script setup lang="ts">
-import dayjs from 'dayjs';
 import { get, set } from 'lodash-es';
 import { db } from 'src/utils/db';
-import { ref, toRaw, watchEffect } from 'vue';
-import relativeTime from 'dayjs/plugin/relativeTime'
-import { useFeedStore } from 'src/stores/feedStore';
+import { computed, ref, toRaw, watchEffect } from 'vue';
 import StarToggle from 'src/components/StarToggle.vue';
 import { type Item } from 'src/utils/item';
+import ItemPage from './ItemPage.vue';
+import ItemTime from 'src/components/ItemTime.vue';
+import ItemFeed from 'src/components/ItemFeed.vue';
 
-dayjs.extend(relativeTime)
 
 const items = ref<Item[]>([])
 const skip = ref(0)
 const limit = 5
 const hasMore = ref(true)
-const feedStore = useFeedStore()
+const activeIndex = ref(-1)
+
+const activeItem = computed(() => items.value[activeIndex.value])
 
 async function fetchItems() {
   const res = await db.find({
@@ -74,13 +77,6 @@ function setItemCover(item: unknown) {
   const doc = parser.parseFromString(html, 'text/html');
   const src = doc.querySelector('img')?.src
   set(item as object, 'cover', src)
-}
-function getItemTime(item: unknown) {
-  const time = get(item, 'pubDate')
-  if (!time) {
-    return ''
-  }
-  return dayjs(time).fromNow()
 }
 async function toggleStar(index: number) {
   const newItem = toRaw(items.value[index])

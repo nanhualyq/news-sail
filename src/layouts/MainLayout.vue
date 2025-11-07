@@ -33,6 +33,7 @@ import { useQuasar } from 'quasar';
 import Parser from 'rss-parser/dist/rss-parser.min.js';
 import { useFeedStore } from 'src/stores/feedStore';
 import { db } from 'src/utils/db';
+import { urlToHashId } from 'src/utils/helpers';
 import { ref } from 'vue';
 
 const $q = useQuasar()
@@ -61,20 +62,22 @@ async function fetchFeedAndSave(url: string) {
   const parser = new Parser()
   const feed = await parser.parseString(xml)
   console.log(feed)
-  const feedId = feed.link || `feed-${Date.now()}`
-  const docs = [
-    {
-      _id: feedId,
-      type: 'feed',
-      ...omit(feed, 'items')
-    },
-    ...feed.items.map(item => ({
-      _id: item.guid || item.link || `item-${Date.now()}`,
+  const feedId = await urlToHashId(feed.link || url)
+  const docs = [];
+  const feedDoc = {
+    _id: feedId,
+    type: 'feed',
+    ...omit(feed, 'items')
+  }
+  docs.push(feedDoc)
+  for (const item of feed.items) {
+    docs.push({
+      _id: await urlToHashId(item.guid || item.link || `item-${Date.now()}`),
       feedId,
       type: 'item',
       ...item
-    }))
-  ]
+    });
+  }
   const res = await db.bulkDocs(docs)
   console.log(res);
 }
