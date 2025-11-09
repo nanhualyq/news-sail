@@ -1,5 +1,5 @@
 <template>
-  <q-dialog :model-value="true" maximized>
+  <q-dialog :model-value="true" maximized @before-hide="emit('close')">
     <q-card class="column">
       <q-card-section style="flex: 1;" class="scroll">
         <h5>{{ item.title }}</h5>
@@ -15,7 +15,7 @@
 
         <q-space />
 
-        <q-btn dense flat icon="close" @click="emit('close')">
+        <q-btn dense flat icon="close" v-close-popup>
           <q-tooltip>Close</q-tooltip>
         </q-btn>
       </q-bar>

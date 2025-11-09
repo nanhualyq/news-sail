@@ -7,6 +7,6 @@ export const db = new PouchDB('data', {
 });
 void db.createIndex({
   index: {
-    fields: ['type'],
+    fields: ['isoDate', 'type', 'feedId'],
   },
 });

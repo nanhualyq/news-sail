@@ -1,4 +1,4 @@
-import { mapKeys } from 'lodash-es';
+import { groupBy, mapKeys } from 'lodash-es';
 import { defineStore, acceptHMRUpdate } from 'pinia';
 import { db } from 'src/utils/db';
 
@@ -7,6 +7,14 @@ type Feed = {
   type: 'feed';
   url?: string;
   title?: string;
+  category?: string;
+};
+
+type CategoryTree = {
+  _id: string;
+  title: string;
+  icon: string;
+  children: Feed[];
 };
 
 export const useFeedStore = defineStore('feed', {
@@ -15,7 +23,21 @@ export const useFeedStore = defineStore('feed', {
   }),
 
   getters: {
-    idMap: (state) => mapKeys(state.feeds, '_id'),
+    idMap(state) {
+      return mapKeys(state.feeds, '_id');
+    },
+    categoryTree(state) {
+      const obj = groupBy(state.feeds, (o) => o.category || 'uncategorized');
+      return Object.entries(obj).reduce((arr, [key, val]) => {
+        arr.push({
+          _id: key,
+          title: key,
+          icon: 'folder',
+          children: val,
+        });
+        return arr;
+      }, [] as CategoryTree[]);
+    },
   },
 
   actions: {
@@ -28,8 +50,11 @@ export const useFeedStore = defineStore('feed', {
       });
       this.feeds = res.docs as unknown as Feed[];
     },
-    byId(id: string) {
+    byId(id: string): Feed | undefined {
       return this.idMap[id];
+    },
+    byCategoryId(categoryId: string): CategoryTree | Feed | undefined {
+      return this.idMap[categoryId] || this.categoryTree.find((o) => o._id === categoryId);
     },
   },
 });

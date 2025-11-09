@@ -1,5 +1,6 @@
 export type Item = {
   _id: string;
+  _rev: string;
   type?: string;
   star?: boolean;
   cover?: string;
