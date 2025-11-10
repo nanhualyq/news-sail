@@ -116,6 +116,7 @@ async function fetchFeedAndSave(url: string) {
       _id: await urlToHashId(item.guid || item.link || `item-${Date.now()}`),
       feedId,
       type: 'item',
+      read: false,
       ...item
     });
   }

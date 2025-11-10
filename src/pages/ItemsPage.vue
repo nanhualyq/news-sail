@@ -2,7 +2,8 @@
   <q-page>
     <q-list>
       <q-infinite-scroll @load="loadNextPage" :disable="!hasMore">
-        <q-item clickable v-for="(item, index) in items" :key="get(item, '_id', index)" @click="activeIndex = index">
+        <q-item clickable v-for="(item, index) in items" :key="item._id" @click="viewItem(index)"
+          :class="{ read: item.read }">
           <q-item-section thumbnail v-if="item.cover">
             <img :src="item.cover" />
           </q-item-section>
@@ -73,19 +74,21 @@ watch(() => route.query, () => {
 }, { deep: true, immediate: false })
 
 async function fetchItems() {
-  const res = await db.find({
-    selector: {
-      type: 'item',
-      feedId: selectorFeedId.value,
-      isoDate: { $gte: null }
-    },
-    sort: [{ isoDate: 'desc' }],
+  const { indexes } = await db.getIndexes();
+  console.log(indexes);
+  const res = await db.query('items_by_date/by_feed_type_date_read', {
+    startkey: [selectorFeedId.value, 'item', '\ufff0', false], // '\ufff0' 表示比任何字符串大的最大值
+    endkey: [selectorFeedId.value, 'item', '', false],
+    descending: true,   // 倒序！
     limit: limit + 1,
-    skip: skip.value
-  })
-  hasMore.value = res.docs.length > limit
-  res.docs.forEach(setItemCover)
-  items.value = items.value.concat(res.docs.slice(0, limit) as Item[])
+    skip: skip.value,
+    include_docs: true
+  });
+  console.log(res);
+
+  hasMore.value = res.rows.length > limit
+  res.rows.forEach(r => setItemCover(r.doc))
+  items.value = items.value.concat(res.rows.map(r => r.doc).slice(0, limit) as Item[])
 }
 
 watchEffect(() => void fetchItems())
@@ -105,17 +108,32 @@ function setItemCover(item: unknown) {
   const src = doc.querySelector('img')?.src
   set(item as object, 'cover', src)
 }
-async function toggleStar(index: number) {
+async function updateItem(index: number, cb: (item: Item) => void) {
   const item = items.value[index]
   if (!item) {
     return
   }
-  item.star = !item.star
+  cb(item)
   const res = await db.put(toRaw(item))
   if (res.ok) {
     item._rev = res.rev
   }
 }
+function viewItem(index: number) {
+  activeIndex.value = index
+  if (items.value[index]?.read) {
+    return
+  }
+  void updateItem(index, o => o.read = true)
+}
+function toggleStar(index: number) {
+  void updateItem(index, o => o.star = !o.star)
+}
 </script>
 
-<style scoped lang="scss"></style>
+<style scoped lang="scss">
+.read {
+  opacity: .6;
+  filter: grayscale(100%);
+}
+</style>

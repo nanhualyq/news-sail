@@ -9,5 +9,7 @@ export type Item = {
   content?: string;
   contentSnippet?: string;
   pubDate?: string;
+  isoDate?: string;
   feedId?: string;
+  read?: boolean;
 };
