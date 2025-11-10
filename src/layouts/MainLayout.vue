@@ -20,7 +20,24 @@
         </q-item>
         <q-separator />
         <q-tree :nodes="feedStore.categoryTree" node-key="_id" label-key="title" no-connectors selected-color="primary"
-          v-model:selected="selected" />
+          v-model:selected="selected">
+          <template v-slot:default-header="prop">
+            <div class="row items-center" style="gap: 4px;">
+              <q-icon :name="prop.node.icon || 'feed'" size="1rem" />
+              <div>{{ prop.node.title }}</div>
+              <q-menu touch-position context-menu v-if="!prop.node.children">
+                <q-list>
+                  <q-item clickable v-close-popup @click="editFeed(prop.node)">
+                    <q-item-section>Edit Feed</q-item-section>
+                  </q-item>
+                  <q-item clickable v-close-popup>
+                    <q-item-section>Delete Feed (With Items)</q-item-section>
+                  </q-item>
+                </q-list>
+              </q-menu>
+            </div>
+          </template>
+        </q-tree>
       </q-list>
     </q-drawer>
 
@@ -34,6 +51,8 @@
 import { omit } from 'lodash-es';
 import { useQuasar } from 'quasar';
 import Parser from 'rss-parser/dist/rss-parser.min.js';
+import JsonEditor from 'src/components/JsonEditor.vue';
+import type { Feed } from 'src/stores/feedStore';
 import { useFeedStore } from 'src/stores/feedStore';
 import { db } from 'src/utils/db';
 import { urlToHashId } from 'src/utils/helpers';
@@ -102,5 +121,13 @@ async function fetchFeedAndSave(url: string) {
   }
   const res = await db.bulkDocs(docs)
   console.log(res);
+}
+function editFeed(feed: Feed) {
+  $q.dialog({
+    component: JsonEditor,
+    componentProps: {
+      jsonObject: feed
+    }
+  }).onOk(feed => void feedStore.updateFeed(feed))
 }
 </script>

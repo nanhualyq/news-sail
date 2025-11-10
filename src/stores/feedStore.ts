@@ -2,8 +2,9 @@ import { groupBy, mapKeys } from 'lodash-es';
 import { defineStore, acceptHMRUpdate } from 'pinia';
 import { db } from 'src/utils/db';
 
-type Feed = {
+export type Feed = {
   _id: string;
+  _rev: string;
   type: 'feed';
   url?: string;
   title?: string;
@@ -55,6 +56,14 @@ export const useFeedStore = defineStore('feed', {
     },
     byCategoryId(categoryId: string): CategoryTree | Feed | undefined {
       return this.idMap[categoryId] || this.categoryTree.find((o) => o._id === categoryId);
+    },
+    async updateFeed(feed: Feed) {
+      const res = await db.put(feed);
+      if (res.ok) {
+        feed._rev = res.rev;
+      }
+      const index = this.feeds.findIndex((o) => o._id === feed._id);
+      this.feeds[index] = feed;
     },
   },
 });
