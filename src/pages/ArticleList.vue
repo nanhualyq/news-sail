@@ -26,7 +26,7 @@
         </template>
       </q-infinite-scroll>
     </q-list>
-    <ItemPage v-if="activeItem" :item="activeItem" :key="activeItem?.id" @close="activeIndex = -1"
+    <ArticlePage v-if="activeItem" :item="activeItem" :key="activeItem?.id" @close="activeIndex = -1"
       @toggle-star="toggleStar(activeIndex)" />
   </q-page>
 </template>
@@ -37,7 +37,7 @@ import { computed, ref, toRaw, watch } from 'vue';
 import { useFeedStore } from 'src/stores/feedStore';
 import StarToggle from 'src/components/StarToggle.vue';
 import { type Item } from 'src/utils/item';
-import ItemPage from './ItemPage.vue';
+import ArticlePage from './ArticlePage.vue';
 import ItemTime from 'src/components/ItemTime.vue';
 import { useRoute } from 'vue-router';
 import ItemFeed from 'src/components/ItemFeed.vue';
