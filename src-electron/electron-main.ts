@@ -23,7 +23,6 @@ async function createWindow() {
     useContentSize: true,
     webPreferences: {
       contextIsolation: true,
-      partition: 'persist:appdb', // 固定 session，防止随机 session 导致数据库不同
       // More info: https://v2.quasar.dev/quasar-cli-vite/developing-electron-apps/electron-preload-script
       preload: path.resolve(
         currentDir,

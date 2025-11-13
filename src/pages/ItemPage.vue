@@ -10,7 +10,7 @@
         <div class="row" style="font-size: 14px !important; gap: 0.5rem;">
           <ItemTime :item />
           <ItemFeed :item />
-          <StarToggle :star="!!item.star" @click.stop="emit('toggleStar')" padding="none" />
+          <StarToggle :star="!!item.starred" @click.stop="emit('toggleStar')" padding="none" />
         </div>
 
         <q-space />

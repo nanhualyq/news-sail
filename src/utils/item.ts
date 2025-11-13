@@ -1,8 +1,7 @@
 export type Item = {
-  _id: string;
-  _rev: string;
-  type?: string;
-  star?: boolean;
+  id: number;
+  feed_id?: number;
+  starred?: number;
   cover?: string;
   link?: string;
   title?: string;
@@ -10,6 +9,5 @@ export type Item = {
   contentSnippet?: string;
   pubDate?: string;
   isoDate?: string;
-  feedId?: string;
-  read?: boolean;
+  read?: number;
 };

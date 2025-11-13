@@ -6,7 +6,7 @@
 
         <q-toolbar-title>{{ currentCategory?.title || 'Feeds' }}</q-toolbar-title>
 
-        <div>Quasar v{{ $q.version }}</div>
+        <q-select v-model="articleType" :options="['unread', 'read', 'starred', 'all']" label="Type" />
       </q-toolbar>
     </q-header>
 
@@ -19,19 +19,26 @@
           <q-item-section>Add Feed</q-item-section>
         </q-item>
         <q-separator />
-        <q-tree :nodes="feedStore.categoryTree" node-key="_id" label-key="title" no-connectors selected-color="primary"
+        <q-tree :nodes="feedStore.categoryTree" node-key="id" label-key="title" no-connectors selected-color="primary"
           v-model:selected="selected">
           <template v-slot:default-header="prop">
             <div class="row items-center" style="gap: 4px;">
-              <q-icon :name="prop.node.icon || 'feed'" size="1rem" />
+              <img v-if="prop.node.icon" :src="prop.node.icon" style="width: 1rem; height: 1rem;">
+              <q-icon v-else :name="prop.node.children ? 'folder' : 'feed'" size="1rem" />
               <div>{{ prop.node.title }}</div>
               <q-menu touch-position context-menu v-if="!prop.node.children">
                 <q-list>
                   <q-item clickable v-close-popup @click="editFeed(prop.node)">
                     <q-item-section>Edit Feed</q-item-section>
                   </q-item>
-                  <q-item clickable v-close-popup>
-                    <q-item-section>Delete Feed (With Items)</q-item-section>
+                  <q-item clickable v-close-popup @click="fetchFeed(prop.node)">
+                    <q-item-section>Fetch Feed</q-item-section>
+                  </q-item>
+                  <q-item clickable v-close-popup @click="deleteFeed(prop.node.id)">
+                    <q-item-section>Delete Feed</q-item-section>
+                  </q-item>
+                  <q-item clickable v-close-popup @click="deleteArticlesByFeed(prop.node.id)">
+                    <q-item-section>Delete Articles</q-item-section>
                   </q-item>
                 </q-list>
               </q-menu>
@@ -48,20 +55,19 @@
 </template>
 
 <script setup lang="ts">
-import { omit } from 'lodash-es';
+import { pick } from 'lodash-es';
 import { useQuasar } from 'quasar';
-import Parser from 'rss-parser/dist/rss-parser.min.js';
 import JsonEditor from 'src/components/JsonEditor.vue';
+import useDialog from 'src/composables/useDialog';
 import type { Feed } from 'src/stores/feedStore';
 import { useFeedStore } from 'src/stores/feedStore';
-import { db } from 'src/utils/db';
-import { urlToHashId } from 'src/utils/helpers';
 import { computed, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 const $q = useQuasar()
 const route = useRoute()
 const router = useRouter()
+const dialog = useDialog()
 
 const leftDrawerOpen = ref(false);
 const feedStore = useFeedStore()
@@ -82,6 +88,19 @@ const selected = computed({
     })
   }
 })
+const articleType = computed({
+  get() {
+    return route.query.type || 'unread'
+  },
+  set(status) {
+    void router.push({
+      path: '/items',
+      query: {
+        type: status
+      }
+    })
+  }
+})
 
 function toggleLeftDrawer() {
   leftDrawerOpen.value = !leftDrawerOpen.value;
@@ -95,34 +114,9 @@ function addFeed() {
     }
   })
     // https://kite.kagi.com/ai_zh-Hans.xml
-    .onOk(url => void fetchFeedAndSave(url))
+    .onOk(url => void window.backend.invoke('feed.add', url))
 }
 
-async function fetchFeedAndSave(url: string) {
-  const xml = await window.backend.fetch(url)
-  const parser = new Parser()
-  const feed = await parser.parseString(xml)
-  console.log(feed)
-  const feedId = await urlToHashId(feed.link || url)
-  const docs = [];
-  const feedDoc = {
-    _id: feedId,
-    type: 'feed',
-    ...omit(feed, 'items')
-  }
-  docs.push(feedDoc)
-  for (const item of feed.items) {
-    docs.push({
-      _id: await urlToHashId(item.guid || item.link || `item-${Date.now()}`),
-      feedId,
-      type: 'item',
-      read: false,
-      ...item
-    });
-  }
-  const res = await db.bulkDocs(docs)
-  console.log(res);
-}
 function editFeed(feed: Feed) {
   $q.dialog({
     component: JsonEditor,
@@ -130,5 +124,35 @@ function editFeed(feed: Feed) {
       jsonObject: feed
     }
   }).onOk(feed => void feedStore.updateFeed(feed))
+}
+async function deleteArticlesByFeed(feedId: number) {
+  const res = await dialog({
+    title: 'DELETE',
+    message: 'All articles under this feed will be deleted',
+    cancel: true,
+    persistent: true
+  })
+  if (!res.ok) {
+    return
+  }
+  await window.backend.invoke('article.deleteByFeed', feedId)
+  // notify article list page
+  feedStore.lastEmptiedFeed = feedId
+}
+function fetchFeed(feed: Feed) {
+  void window.backend.invoke('feed.fetch', pick(feed, ['id', 'link']))
+}
+async function deleteFeed(feedId: number) {
+  const res = await dialog({
+    title: 'DELETE',
+    message: 'This feed will be deleted (including all articles)',
+    cancel: true,
+    persistent: true
+  })
+  if (!res.ok) {
+    return
+  }
+  await window.backend.invoke('feed.deleteRow', feedId)
+  feedStore.lastEmptiedFeed = feedId
 }
 </script>

@@ -2,7 +2,7 @@
   <q-page>
     <q-list>
       <q-infinite-scroll @load="loadNextPage" :disable="!hasMore">
-        <q-item clickable v-for="(item, index) in items" :key="item._id" @click="viewItem(index)"
+        <q-item clickable v-for="(item, index) in items" :key="item.id" @click="viewItem(index)"
           :class="{ read: item.read }">
           <q-item-section thumbnail v-if="item.cover">
             <img :src="item.cover" />
@@ -15,7 +15,7 @@
             <q-item-label class="row q-gutter-x-sm items-center">
               <ItemTime :item />
               <ItemFeed :item />
-              <StarToggle :star="!!item.star" @click.stop="toggleStar(index)" padding="none" />
+              <StarToggle :star="!!item.starred" @click.stop="toggleStar(index)" padding="none" />
             </q-item-label>
           </q-item-section>
         </q-item>
@@ -26,15 +26,14 @@
         </template>
       </q-infinite-scroll>
     </q-list>
-    <ItemPage v-if="activeItem" :item="activeItem" :key="activeItem?._id" @close="activeIndex = -1"
+    <ItemPage v-if="activeItem" :item="activeItem" :key="activeItem?.id" @close="activeIndex = -1"
       @toggle-star="toggleStar(activeIndex)" />
   </q-page>
 </template>
 
 <script setup lang="ts">
-import { get, set } from 'lodash-es';
-import { db } from 'src/utils/db';
-import { computed, nextTick, ref, toRaw, watch, watchEffect } from 'vue';
+import { get, pick, set } from 'lodash-es';
+import { computed, ref, toRaw, watch } from 'vue';
 import { useFeedStore } from 'src/stores/feedStore';
 import StarToggle from 'src/components/StarToggle.vue';
 import { type Item } from 'src/utils/item';
@@ -54,48 +53,61 @@ const activeIndex = ref(-1)
 
 const activeItem = computed(() => items.value[activeIndex.value])
 const currentCategory = computed(() => feedStore.byCategoryId(route.query.category as string))
-const selectorFeedId = computed(() => {
+const queryFeed = computed(() => {
   const cate = currentCategory.value
   if (!cate) {
-    return
+    return ''
   }
   if ('children' in cate) {
-    return {
-      $in: cate.children.map(c => c._id)
-    }
+    return `feed_id IN (${cate.children.map(c => c.id).join(',')})`
   } else {
-    return cate._id
+    return `feed_id=${cate.id}`
+  }
+})
+const queryType = computed(() => {
+  const type = route.query.type as string
+  switch (type) {
+    case 'unread':
+      return 'read=0'
+    case 'read':
+      return 'read=1'
+    case 'starred':
+      return 'starred=1'
+    case 'all':
+      return ''
+    default:
+      return 'read=0'
   }
 })
 
 watch(() => route.query, () => {
   skip.value = 0
   items.value = []
+  void fetchItems()
 }, { deep: true, immediate: false })
 
-async function fetchItems() {
-  const { indexes } = await db.getIndexes();
-  console.log(indexes);
-  const res = await db.query('items_by_date/by_feed_type_date_read', {
-    startkey: [selectorFeedId.value, 'item', '\ufff0', false], // '\ufff0' 表示比任何字符串大的最大值
-    endkey: [selectorFeedId.value, 'item', '', false],
-    descending: true,   // 倒序！
-    limit: limit + 1,
-    skip: skip.value,
-    include_docs: true
-  });
-  console.log(res);
+watch(() => feedStore.lastEmptiedFeed, (feedId) => {
+  items.value = items.value.filter(item => item.feed_id !== feedId)
+})
 
-  hasMore.value = res.rows.length > limit
-  res.rows.forEach(r => setItemCover(r.doc))
-  items.value = items.value.concat(res.rows.map(r => r.doc).slice(0, limit) as Item[])
+async function fetchItems() {
+  const res = await window.backend.invoke('table.list', 'article', {
+    limit: limit + 1,
+    offset: skip.value,
+    orderBy: ['pubDate', 'desc'],
+    where: `${[queryFeed.value, queryType.value].filter(Boolean).join(' AND ')}`
+  })
+
+  hasMore.value = res.length > limit
+  res.forEach(setItemCover)
+  items.value = items.value.concat(res.slice(0, limit) as Item[])
 }
 
-watchEffect(() => void fetchItems())
-
 function loadNextPage(_index: number, done: () => void) {
-  skip.value += limit
-  void nextTick(done)
+  if (items.value.length > 0) {
+    skip.value += limit
+  }
+  void fetchItems().then(done)
 }
 
 function setItemCover(item: unknown) {
@@ -114,20 +126,17 @@ async function updateItem(index: number, cb: (item: Item) => void) {
     return
   }
   cb(item)
-  const res = await db.put(toRaw(item))
-  if (res.ok) {
-    item._rev = res.rev
-  }
+  await window.backend.invoke('table.patch', 'article', pick(toRaw(item), ['id', 'read', 'starred']))
 }
 function viewItem(index: number) {
   activeIndex.value = index
   if (items.value[index]?.read) {
     return
   }
-  void updateItem(index, o => o.read = true)
+  void updateItem(index, o => o.read = 1)
 }
 function toggleStar(index: number) {
-  void updateItem(index, o => o.star = !o.star)
+  void updateItem(index, o => o.starred = Number(!o.starred))
 }
 </script>
 
