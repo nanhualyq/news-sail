@@ -1,8 +1,8 @@
 <template>
-  <q-dialog :model-value="true" maximized @before-hide="emit('close')">
-    <q-card class="column">
+  <dialog class="dialog-box" ref="dialogRef" @close="emit('close')">
+    <q-card class="column" style="height: 90vh;">
       <q-card-section style="flex: 1;" class="scroll">
-        <h5>{{ item.title }}</h5>
+        <h1>{{ item.title }}</h1>
         <hr>
         <div class="content" v-html="item.content"></div>
       </q-card-section>
@@ -20,7 +20,7 @@
         </q-btn>
       </q-bar>
     </q-card>
-  </q-dialog>
+  </dialog>
 </template>
 
 <script setup lang="ts">
@@ -28,9 +28,13 @@ import ItemFeed from 'src/components/ItemFeed.vue';
 import ItemTime from 'src/components/ItemTime.vue';
 import StarToggle from 'src/components/StarToggle.vue';
 import { type Item } from 'src/utils/item';
+import { onMounted, useTemplateRef } from 'vue';
 
 const emit = defineEmits(['close', 'toggleStar'])
 const { item } = defineProps<{ item: Item }>()
+
+const dialogRef = useTemplateRef('dialogRef')
+onMounted(() => dialogRef.value?.showModal())
 </script>
 
 <style scoped lang="scss">
@@ -40,6 +44,31 @@ const { item } = defineProps<{ item: Item }>()
   :global(video) {
     max-width: 100%;
   }
+
+  :global(h1) {
+    font-size: 1.5em;
+  }
+
+  :global(h2) {
+    font-size: 1.2em;
+  }
+
+  :global(h3) {
+    font-size: 1.17em;
+  }
+
+  :global(h4) {
+    font-size: 1em;
+  }
+
+  :global(h5) {
+    font-size: 0.83em;
+  }
+
+  :global(h6) {
+    font-size: 0.75em;
+  }
+
 
   :global(h1),
   :global(h2),
@@ -51,5 +80,9 @@ const { item } = defineProps<{ item: Item }>()
     padding: 0;
     line-height: 1.5em;
   }
+}
+
+.dialog-box {
+  padding: 0;
 }
 </style>
