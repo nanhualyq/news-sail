@@ -1,6 +1,6 @@
 <template>
   <q-page>
-    <q-list>
+    <q-list v-scrollToItem="activeIndex">
       <q-infinite-scroll @load="loadNextPage" :disable="!hasMore">
         <q-item clickable v-for="(item, index) in items" :key="item.id" @click="viewItem(index)"
           :class="{ read: item.read }">
@@ -41,6 +41,7 @@ import ArticlePage from './ArticlePage.vue';
 import ItemTime from 'src/components/ItemTime.vue';
 import { useRoute } from 'vue-router';
 import ItemFeed from 'src/components/ItemFeed.vue';
+import { useEventListener } from '@vueuse/core';
 
 const route = useRoute()
 
@@ -89,6 +90,24 @@ watch(() => route.query, () => {
 watch(() => feedStore.lastEmptiedFeed, (feedId) => {
   items.value = items.value.filter(item => item.feed_id !== feedId)
 })
+
+useEventListener(window, 'keydown', (e) => {
+  // avoid when input
+  if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+    return
+  }
+  if (e.key === 'j') {
+    activeIndex.value = Math.min(activeIndex.value + 1, items.value.length - 1)
+  } else if (e.key === 'k') {
+    activeIndex.value = Math.max(activeIndex.value - 1, 0)
+  }
+})
+
+const vScrollToItem = {
+  updated(el: Element, binding: { value: number }) {
+    el.querySelector(`.q-item:nth-child(${binding.value + 1})`)?.scrollIntoView({ block: 'center' })
+  }
+}
 
 async function fetchItems() {
   const res = await window.backend.invoke('table.list', 'article', {
